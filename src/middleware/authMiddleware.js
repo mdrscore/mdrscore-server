@@ -1,0 +1,26 @@
+const supabase = require('../config/supabase');
+
+const requireAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Akses Ditolak: Token tidak ditemukan' });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Akses Ditolak: Token tidak valid' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Terjadi kesalahan server saat autentikasi' });
+  }
+};
+
+module.exports = requireAuth;
