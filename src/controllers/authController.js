@@ -1,96 +1,130 @@
 const supabase = require('../config/supabase');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
 
 exports.register = async (req, res) => {
   const { email, password, username, full_name } = req.body;
 
-  try {
-    if (username) {
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('username')
-        .eq('username', username)
-        .maybeSingle();
+  if (!email || !password || !username) {
+    return res.status(400).json({ status: 'gagal', message: 'Email, username, dan password wajib diisi' });
+  }
 
-      if (checkError) throw checkError;
-      if (existingUser) {
-        return res.status(400).json({ status: 'gagal', message: 'Username sudah digunakan' });
-      }
+  try {
+    const { data: existingByEmail } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingByEmail) {
+      return res.status(400).json({ status: 'gagal', message: 'Email sudah digunakan' });
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          username: username,
-          full_name: full_name
-        }
-      }
-    });
+    const { data: existingByUsername } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
 
-    if (error) throw error;
+    if (existingByUsername) {
+      return res.status(400).json({ status: 'gagal', message: 'Username sudah digunakan' });
+    }
+
+    const id = uuidv4();
+    const hashed = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+
+    const insertPayload = {
+      id,
+      email,
+      username,
+      full_name: full_name || null,
+      hashed_password: hashed,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert(insertPayload);
+
+    if (insertError) {
+      return res.status(500).json({ status: 'gagal', message: insertError.message });
+    }
+
+    const token = jwt.sign({ sub: id }, JWT_SECRET, { expiresIn: '7d' });
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email, username, full_name, avatar_url, bio, gender, date_of_birth, height_cm, weight_kg, target_sleep_hours, target_water_ml, currency_code, timezone, created_at, updated_at, data_hapsu')
+      .eq('id', id)
+      .maybeSingle();
 
     res.status(201).json({
       status: 'sukses',
       message: 'Registrasi berhasil',
-      data: {
-        user: data.user
-      }
+      token,
+      user: userData
     });
 
   } catch (err) {
-    res.status(400).json({ status: 'gagal', message: err.message });
+    res.status(500).json({ status: 'gagal', message: err.message });
   }
 };
 
 exports.login = async (req, res) => {
   const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ status: 'gagal', message: 'Email/username dan password wajib diisi' });
+  }
 
   try {
-    let targetEmail = email;
+    let userRecord;
 
-    if (!email.includes('@')) {
-      const { data: userRecord, error: uErr } = await supabase
+    if (email.includes('@')) {
+      const { data } = await supabase
         .from('users')
-        .select('email')
-        .eq('username', email)
-        .maybeSingle();
-
-      if (uErr) throw uErr;
-      if (!userRecord) {
-        return res.status(404).json({ status: 'gagal', message: 'Username tidak ditemukan' });
-      }
-      targetEmail = userRecord.email;
-    } else {
-      const { data: userRecord, error: eErr } = await supabase
-        .from('users')
-        .select('email')
+        .select('id, email, username, hashed_password, full_name, avatar_url')
         .eq('email', email)
         .maybeSingle();
-
-      if (eErr) throw eErr;
-      if (!userRecord) {
-        return res.status(404).json({ status: 'gagal', message: 'Email tidak ditemukan' });
-      }
+      userRecord = data;
+    } else {
+      const { data } = await supabase
+        .from('users')
+        .select('id, email, username, hashed_password, full_name, avatar_url')
+        .eq('username', email)
+        .maybeSingle();
+      userRecord = data;
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: targetEmail,
-      password,
-    });
+    if (!userRecord) {
+      return res.status(404).json({ status: 'gagal', message: 'User tidak ditemukan' });
+    }
 
-    if (error) {
+    const isMatch = await bcrypt.compare(password, userRecord.hashed_password || '');
+    if (!isMatch) {
       return res.status(401).json({ status: 'gagal', message: 'Password salah' });
     }
+
+    const token = jwt.sign({ sub: userRecord.id }, JWT_SECRET, { expiresIn: '7d' });
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email, username, full_name, avatar_url, bio, gender, date_of_birth, height_cm, weight_kg, target_sleep_hours, target_water_ml, currency_code, timezone, created_at, updated_at, data_hapsu')
+      .eq('id', userRecord.id)
+      .maybeSingle();
 
     res.status(200).json({
       status: 'sukses',
       message: 'Login berhasil',
-      token: data.session?.access_token ?? null,
-      user: data.user
+      token,
+      user: userData
     });
 
   } catch (err) {
-    res.status(500).json({ status: 'gagal', message: 'Terjadi kesalahan server' });
+    res.status(500).json({ status: 'gagal', message: err.message });
   }
 };

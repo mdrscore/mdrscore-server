@@ -1,29 +1,33 @@
+const jwt = require('jsonwebtoken');
 const supabase = require('../config/supabase');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 
 const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Token tidak ditemukan' });
-  }
+  if (!authHeader) return res.status(401).json({ error: 'Token tidak ditemukan' });
 
   const parts = authHeader.split(' ');
-  if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    return res.status(401).json({ error: 'Format Authorization header tidak valid' });
-  }
+  if (parts.length !== 2 || parts[0] !== 'Bearer') return res.status(401).json({ error: 'Format Authorization header tidak valid' });
 
   const token = parts[1];
 
   try {
-    const { data, error } = await supabase.auth.getUser(token);
-    if (error || !data?.user) {
-      return res.status(401).json({ error: 'Token tidak valid' });
-    }
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.sub;
 
-    req.user = data.user;
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, username, full_name, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error || !data) return res.status(401).json({ error: 'Token tidak valid' });
+
+    req.user = data;
     next();
   } catch (err) {
-    return res.status(500).json({ error: 'Terjadi kesalahan server saat autentikasi' });
+    return res.status(401).json({ error: 'Token tidak valid atau kadaluarsa' });
   }
 };
 
