@@ -7,19 +7,23 @@ const requireAuth = async (req, res, next) => {
     return res.status(401).json({ error: 'Token tidak ditemukan' });
   }
 
-  const token = authHeader.split(' ')[1];
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return res.status(401).json({ error: 'Format Authorization header tidak valid' });
+  }
+
+  const token = parts[1];
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) {
       return res.status(401).json({ error: 'Token tidak valid' });
     }
 
-    req.user = user;
+    req.user = data.user;
     next();
   } catch (err) {
-    res.status(500).json({ error: 'Terjadi kesalahan server saat autentikasi' });
+    return res.status(500).json({ error: 'Terjadi kesalahan server saat autentikasi' });
   }
 };
 
