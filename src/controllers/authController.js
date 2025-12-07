@@ -29,10 +29,15 @@ exports.register = async (req, res) => {
 
     if (error) throw error;
 
+    const isVerifyRequired = !data.session;
+
     res.status(201).json({
       status: 'sukses',
-      message: 'Registrasi berhasil. Silakan cek email Anda untuk verifikasi.',
-      user: data.user
+      message: isVerifyRequired ? 'Cek email untuk verifikasi' : 'Registrasi berhasil',
+      data: {
+        user: data.user,
+        require_verify: isVerifyRequired
+      }
     });
 
   } catch (err) {
@@ -41,28 +46,21 @@ exports.register = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
-  const { email, username, password } = req.body;
-  
-  const loginIdentifier = email || username;
-
-  if (!loginIdentifier || !password) {
-    return res.status(400).json({ status: 'gagal', message: 'Email/Username dan Password wajib diisi' });
-  }
+  const { email, password } = req.body;
 
   try {
-    let targetEmail = loginIdentifier;
+    let targetEmail = email;
 
-    if (!loginIdentifier.includes('@')) {
-      const { data: userRecord, error: userError } = await supabase
+    if (!email.includes('@')) {
+      const { data: userRecord } = await supabase
         .from('users')
         .select('email')
-        .eq('username', loginIdentifier)
+        .eq('username', email)
         .single();
 
-      if (userError || !userRecord) {
+      if (!userRecord) {
         return res.status(401).json({ status: 'gagal', message: 'Username tidak ditemukan' });
       }
-
       targetEmail = userRecord.email;
     }
 

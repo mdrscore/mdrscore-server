@@ -17,23 +17,12 @@ exports.getMyProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   const allowedFields = [
-    'username', 
-    'full_name', 
-    'bio', 
-    'avatar_url', 
-    'gender', 
-    'date_of_birth', 
-    'height_cm', 
-    'weight_kg', 
-    'target_sleep_hours', 
-    'target_water_ml', 
-    'currency_code', 
-    'timezone', 
-    'data_hapsu'
+    'username', 'full_name', 'bio', 'avatar_url', 'gender', 
+    'date_of_birth', 'height_cm', 'weight_kg', 
+    'target_sleep_hours', 'target_water_ml', 'currency_code', 'timezone'
   ];
 
   const updates = {};
-  
   Object.keys(req.body).forEach((key) => {
     if (allowedFields.includes(key)) {
       updates[key] = req.body[key];
@@ -41,10 +30,7 @@ exports.updateProfile = async (req, res) => {
   });
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ 
-      status: 'gagal', 
-      message: 'Tidak ada data valid yang dikirim untuk diperbarui' 
-    });
+    return res.status(400).json({ status: 'gagal', message: 'No valid fields' });
   }
 
   try {
@@ -56,9 +42,7 @@ exports.updateProfile = async (req, res) => {
       .single();
 
     if (error) throw error;
-
-    res.status(200).json({ status: 'sukses', message: 'Profil berhasil diperbarui', data });
-
+    res.status(200).json({ status: 'sukses', data });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
   }
@@ -66,7 +50,7 @@ exports.updateProfile = async (req, res) => {
 
 exports.uploadAvatar = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ status: 'gagal', message: 'Tidak ada file gambar yang diupload' });
+    return res.status(400).json({ status: 'gagal', message: 'No file uploaded' });
   }
 
   try {
@@ -88,11 +72,9 @@ exports.uploadAvatar = async (req, res) => {
       .from('avatars')
       .getPublicUrl(filePath);
 
-    const publicUrl = data.publicUrl;
-
     const { data: updatedUser, error: dbError } = await supabase
       .from('users')
-      .update({ avatar_url: publicUrl })
+      .update({ avatar_url: data.publicUrl })
       .eq('id', req.user.id)
       .select()
       .single();
@@ -101,11 +83,8 @@ exports.uploadAvatar = async (req, res) => {
 
     res.status(200).json({ 
       status: 'sukses', 
-      message: 'Avatar berhasil diupload', 
-      data: { 
-        avatar_url: publicUrl,
-        user: updatedUser
-      } 
+      message: 'Avatar uploaded', 
+      data: { avatar_url: data.publicUrl, user: updatedUser } 
     });
 
   } catch (err) {
@@ -120,28 +99,16 @@ exports.updateAccountSettings = async (req, res) => {
   if (email) authUpdates.email = email;
   if (password) authUpdates.password = password;
 
-  if (Object.keys(authUpdates).length === 0) {
-    return res.status(400).json({ status: 'gagal', message: 'Email atau password harus diisi' });
-  }
-
   try {
     const { data, error } = await supabase.auth.updateUser(authUpdates);
 
     if (error) throw error;
 
     if (email) {
-       await supabase
-        .from('users')
-        .update({ email: email })
-        .eq('id', req.user.id);
+       await supabase.from('users').update({ email }).eq('id', req.user.id);
     }
 
-    res.status(200).json({ 
-      status: 'sukses', 
-      message: 'Pengaturan akun berhasil diperbarui',
-      data: data.user 
-    });
-
+    res.status(200).json({ status: 'sukses', message: 'Account updated' });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
   }
@@ -151,7 +118,7 @@ exports.deleteAccount = async (req, res) => {
   try {
     const { error } = await supabase.auth.admin.deleteUser(req.user.id);
     if (error) throw error;
-    res.status(200).json({ status: 'sukses', message: 'Akun berhasil dihapus permanen' });
+    res.status(200).json({ status: 'sukses', message: 'Account deleted' });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
   }

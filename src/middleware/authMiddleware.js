@@ -4,7 +4,7 @@ const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: 'Akses Ditolak: Token tidak ditemukan' });
+    return res.status(401).json({ error: 'Token missing' });
   }
 
   const token = authHeader.split(' ')[1];
@@ -13,13 +13,13 @@ const requireAuth = async (req, res, next) => {
     const { data: { user }, error } = await supabase.auth.getUser(token);
 
     if (error || !user) {
-      return res.status(401).json({ error: 'Akses Ditolak: Token tidak valid' });
+      return res.status(401).json({ error: 'Invalid token' });
     }
 
     req.user = user;
     next();
   } catch (err) {
-    res.status(500).json({ error: 'Terjadi kesalahan server saat autentikasi' });
+    res.status(500).json({ error: 'Auth server error' });
   }
 };
 

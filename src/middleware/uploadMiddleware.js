@@ -6,7 +6,7 @@ const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('File harus berupa gambar (jpg, jpeg, png, etc)'), false);
+    cb(new Error('Only images allowed'), false);
   }
 };
 

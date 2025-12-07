@@ -12,9 +12,9 @@ app.use(express.json());
 app.use('/api', userRoutes);
 
 app.get('/', (req, res) => {
-  res.send({ status: 'OK', message: 'Server MDRScore berjalan normal' });
+  res.send({ status: 'OK', message: 'Server Running' });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server berjalan di http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
