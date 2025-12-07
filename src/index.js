@@ -12,8 +12,16 @@ app.use(express.json());
 app.use('/api', userRoutes);
 
 app.get('/', (req, res) => {
-  res.send({ status: 'OK', message: 'Server MDRScore Berjalan' });
+  res.status(200).json({
+    status: 'OK',
+    app: 'mdrscore API',
+    message: 'Server mdrscore berjalan dengan baik',
+    time: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    documentation: '/api'
+  });
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server berjalan di http://localhost:${PORT}`);

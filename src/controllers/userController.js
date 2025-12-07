@@ -6,9 +6,10 @@ exports.getMyProfile = async (req, res) => {
       .from('users')
       .select('*')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) return res.status(404).json({ status: 'gagal', message: 'Profil tidak ditemukan' });
     res.status(200).json({ status: 'sukses', data });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
@@ -17,8 +18,8 @@ exports.getMyProfile = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   const allowedFields = [
-    'username', 'full_name', 'bio', 'avatar_url', 'gender', 
-    'date_of_birth', 'height_cm', 'weight_kg', 
+    'username', 'full_name', 'bio', 'avatar_url', 'gender',
+    'date_of_birth', 'height_cm', 'weight_kg',
     'target_sleep_hours', 'target_water_ml', 'currency_code', 'timezone'
   ];
 
@@ -39,7 +40,7 @@ exports.updateProfile = async (req, res) => {
       .update(updates)
       .eq('id', req.user.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     res.status(200).json({ status: 'sukses', data });
@@ -56,10 +57,10 @@ exports.uploadAvatar = async (req, res) => {
   try {
     const file = req.file;
     const fileExt = file.originalname.split('.').pop();
-    const fileName = `${req.user.id}-${Date.now()}.${fileExt}`;
-    const filePath = `${fileName}`;
+    const fileName = `avatar_${Date.now()}.${fileExt}`;
+    const filePath = `${req.user.id}/${fileName}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
@@ -68,23 +69,25 @@ exports.uploadAvatar = async (req, res) => {
 
     if (uploadError) throw uploadError;
 
-    const { data } = supabase.storage
+    const { data: publicData, error: publicErr } = supabase.storage
       .from('avatars')
       .getPublicUrl(filePath);
 
+    if (publicErr) throw publicErr;
+
     const { data: updatedUser, error: dbError } = await supabase
       .from('users')
-      .update({ avatar_url: data.publicUrl })
+      .update({ avatar_url: publicData?.publicUrl })
       .eq('id', req.user.id)
       .select()
-      .single();
+      .maybeSingle();
 
     if (dbError) throw dbError;
 
-    res.status(200).json({ 
-      status: 'sukses', 
-      message: 'Avatar berhasil diupload', 
-      data: { avatar_url: data.publicUrl, user: updatedUser } 
+    res.status(200).json({
+      status: 'sukses',
+      message: 'Avatar berhasil diupload',
+      data: { avatar_url: publicData?.publicUrl, user: updatedUser }
     });
 
   } catch (err) {
@@ -100,12 +103,19 @@ exports.updateAccountSettings = async (req, res) => {
   if (password) authUpdates.password = password;
 
   try {
-    const { data, error } = await supabase.auth.updateUser(authUpdates);
-
-    if (error) throw error;
+    if (Object.keys(authUpdates).length > 0) {
+      const { data, error } = await supabase.auth.admin.updateUserById(req.user.id, authUpdates);
+      if (error) throw error;
+    }
 
     if (email) {
-       await supabase.from('users').update({ email }).eq('id', req.user.id);
+      const { data: updateEmailData, error: updateEmailErr } = await supabase
+        .from('users')
+        .update({ email })
+        .eq('id', req.user.id)
+        .select()
+        .maybeSingle();
+      if (updateEmailErr) throw updateEmailErr;
     }
 
     res.status(200).json({ status: 'sukses', message: 'Pengaturan akun diperbarui' });

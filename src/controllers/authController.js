@@ -5,12 +5,13 @@ exports.register = async (req, res) => {
 
   try {
     if (username) {
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select('username')
         .eq('username', username)
-        .single();
-      
+        .maybeSingle();
+
+      if (checkError) throw checkError;
       if (existingUser) {
         return res.status(400).json({ status: 'gagal', message: 'Username sudah digunakan' });
       }
@@ -29,14 +30,11 @@ exports.register = async (req, res) => {
 
     if (error) throw error;
 
-    const isVerifyRequired = !data.session;
-
     res.status(201).json({
       status: 'sukses',
-      message: isVerifyRequired ? 'Cek email untuk verifikasi' : 'Registrasi berhasil',
+      message: 'Registrasi berhasil',
       data: {
-        user: data.user,
-        require_verify: isVerifyRequired
+        user: data.user
       }
     });
 
@@ -52,23 +50,25 @@ exports.login = async (req, res) => {
     let targetEmail = email;
 
     if (!email.includes('@')) {
-      const { data: userRecord } = await supabase
+      const { data: userRecord, error: uErr } = await supabase
         .from('users')
         .select('email')
         .eq('username', email)
-        .single();
+        .maybeSingle();
 
+      if (uErr) throw uErr;
       if (!userRecord) {
         return res.status(404).json({ status: 'gagal', message: 'Username tidak ditemukan' });
       }
       targetEmail = userRecord.email;
     } else {
-      const { data: userRecord } = await supabase
+      const { data: userRecord, error: eErr } = await supabase
         .from('users')
         .select('email')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
+      if (eErr) throw eErr;
       if (!userRecord) {
         return res.status(404).json({ status: 'gagal', message: 'Email tidak ditemukan' });
       }
@@ -86,7 +86,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       status: 'sukses',
       message: 'Login berhasil',
-      token: data.session.access_token,
+      token: data.session?.access_token ?? null,
       user: data.user
     });
 
