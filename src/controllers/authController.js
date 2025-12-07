@@ -52,17 +52,26 @@ exports.login = async (req, res) => {
     let targetEmail = email;
 
     if (!email.includes('@')) {
-      const { data: userRecord, error: searchError } = await supabase
+      const { data: userRecord } = await supabase
         .from('users')
         .select('email')
         .eq('username', email)
         .single();
 
-      if (searchError || !userRecord) {
-        return res.status(401).json({ status: 'gagal', message: 'Username tidak ditemukan' });
+      if (!userRecord) {
+        return res.status(404).json({ status: 'gagal', message: 'Username tidak ditemukan' });
       }
-
       targetEmail = userRecord.email;
+    } else {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', email)
+        .single();
+
+      if (!userRecord) {
+        return res.status(404).json({ status: 'gagal', message: 'Email tidak ditemukan' });
+      }
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -70,7 +79,9 @@ exports.login = async (req, res) => {
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      return res.status(401).json({ status: 'gagal', message: 'Password salah' });
+    }
 
     res.status(200).json({
       status: 'sukses',
@@ -80,6 +91,6 @@ exports.login = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(401).json({ status: 'gagal', message: 'Username/Email atau password salah' });
+    res.status(500).json({ status: 'gagal', message: 'Terjadi kesalahan server' });
   }
 };

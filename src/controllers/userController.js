@@ -30,7 +30,7 @@ exports.updateProfile = async (req, res) => {
   });
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ status: 'gagal', message: 'No valid fields' });
+    return res.status(400).json({ status: 'gagal', message: 'Tidak ada data valid untuk diupdate' });
   }
 
   try {
@@ -50,7 +50,7 @@ exports.updateProfile = async (req, res) => {
 
 exports.uploadAvatar = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ status: 'gagal', message: 'No file uploaded' });
+    return res.status(400).json({ status: 'gagal', message: 'File gambar wajib diupload' });
   }
 
   try {
@@ -83,7 +83,7 @@ exports.uploadAvatar = async (req, res) => {
 
     res.status(200).json({ 
       status: 'sukses', 
-      message: 'Avatar uploaded', 
+      message: 'Avatar berhasil diupload', 
       data: { avatar_url: data.publicUrl, user: updatedUser } 
     });
 
@@ -108,7 +108,7 @@ exports.updateAccountSettings = async (req, res) => {
        await supabase.from('users').update({ email }).eq('id', req.user.id);
     }
 
-    res.status(200).json({ status: 'sukses', message: 'Account updated' });
+    res.status(200).json({ status: 'sukses', message: 'Pengaturan akun diperbarui' });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
   }
@@ -118,7 +118,7 @@ exports.deleteAccount = async (req, res) => {
   try {
     const { error } = await supabase.auth.admin.deleteUser(req.user.id);
     if (error) throw error;
-    res.status(200).json({ status: 'sukses', message: 'Account deleted' });
+    res.status(200).json({ status: 'sukses', message: 'Akun berhasil dihapus' });
   } catch (err) {
     res.status(500).json({ status: 'gagal', message: err.message });
   }
