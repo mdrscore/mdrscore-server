@@ -1,7 +1,7 @@
 const supabase = require('../config/supabase');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'changeme';
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
@@ -34,7 +34,7 @@ exports.register = async (req, res) => {
       return res.status(400).json({ status: 'gagal', message: 'Username sudah digunakan' });
     }
 
-    const id = uuidv4();
+    const id = crypto.randomUUID();
     const hashed = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
 
     const insertPayload = {
