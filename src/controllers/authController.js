@@ -52,15 +52,16 @@ exports.login = async (req, res) => {
     let targetEmail = email;
 
     if (!email.includes('@')) {
-      const { data: userRecord } = await supabase
+      const { data: userRecord, error: searchError } = await supabase
         .from('users')
         .select('email')
         .eq('username', email)
         .single();
 
-      if (!userRecord) {
+      if (searchError || !userRecord) {
         return res.status(401).json({ status: 'gagal', message: 'Username tidak ditemukan' });
       }
+
       targetEmail = userRecord.email;
     }
 
@@ -79,6 +80,6 @@ exports.login = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(401).json({ status: 'gagal', message: 'Email/Username atau password salah' });
+    res.status(401).json({ status: 'gagal', message: 'Username/Email atau password salah' });
   }
 };
